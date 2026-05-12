@@ -1,5 +1,5 @@
 /**
- * @name MarkdownTableRenderer
+ * @name DiscordGfmTables
  * @author Microck
  * @description Renders GitHub-Flavored Markdown pipe tables in Discord messages.
  * @version 1.0.0

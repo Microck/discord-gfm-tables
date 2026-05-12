@@ -1,12 +1,12 @@
-# markdownbd
+# discord-gfm-tables
 
 BetterDiscord plugin that renders GitHub-Flavored Markdown pipe tables in Discord messages.
 
-Discord already handles a useful subset of Markdown, but table syntax still shows up as raw pipe-delimited text. `markdownbd` watches rendered messages, detects valid GFM table blocks, and replaces only those blocks with native HTML tables.
+Discord already handles a useful subset of Markdown, but table syntax still shows up as raw pipe-delimited text. `discord-gfm-tables` watches rendered messages, detects valid GFM table blocks, and replaces only those blocks with native HTML tables.
 
 ## install
 
-Copy `markdown-table-renderer.plugin.js` into your BetterDiscord plugins folder:
+Copy `discord-gfm-tables.plugin.js` into your BetterDiscord plugins folder:
 
 ```text
 %appdata%/BetterDiscord/plugins
