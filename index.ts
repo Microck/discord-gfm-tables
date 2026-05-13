@@ -80,8 +80,11 @@ function injectStyles() {
 }
 
 .mdtr-table {
+  --mdtr-border-color: var(--border-subtle, rgba(128, 132, 142, 0.48));
+
   width: max-content;
   min-width: min(100%, 32rem);
+  border: 1px solid var(--mdtr-border-color);
   border-collapse: collapse;
   color: var(--text-normal);
   font-size: 0.9375rem;
@@ -90,7 +93,7 @@ function injectStyles() {
 
 .mdtr-table th,
 .mdtr-table td {
-  border: 1px solid var(--background-modifier-accent);
+  border: 1px solid var(--mdtr-border-color);
   padding: 0.35rem 0.55rem;
   vertical-align: top;
   white-space: normal;
