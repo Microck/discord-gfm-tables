@@ -1,24 +1,26 @@
-# discord-gfm-tables
+# DiscordGfmTables
 
-BetterDiscord plugin that renders GitHub-Flavored Markdown pipe tables in Discord messages.
+Vencord userplugin that renders GitHub-Flavored Markdown pipe tables in Discord messages.
 
 Discord already handles a useful subset of Markdown, but table syntax still shows up as raw pipe-delimited text. `discord-gfm-tables` watches rendered messages, detects valid GFM table blocks, and replaces only those blocks with native HTML tables.
 
 ## install
 
-Copy `discord-gfm-tables.plugin.js` into your BetterDiscord plugins folder:
+Add this repository as a custom plugin source in veskforge:
 
 ```text
-%appdata%/BetterDiscord/plugins
+https://github.com/Microck/discord-gfm-tables
 ```
 
-or on Linux:
+Then build and apply the patched Vesktop/Vencord build. The plugin appears in Vencord as **DiscordGfmTables**.
+
+For a manual Vencord development checkout, copy this repository folder into:
 
 ```text
-~/.config/BetterDiscord/plugins
+src/userplugins/discord-gfm-tables
 ```
 
-then enable **MarkdownTableRenderer** in BetterDiscord's plugin settings.
+then run Vencord's normal build command.
 
 ## example
 
@@ -59,4 +61,4 @@ The table rules are documented in [docs/markdown-table-rendering-research.md](do
 - The plugin targets rendered message IDs that currently start with `message-content-`.
 - It restores original message text when the plugin is stopped.
 - It has no external dependencies and does not make network requests.
-- BetterDiscord and Discord DOM internals are unofficial surfaces, so client updates can require selector changes.
+- Discord DOM internals are unofficial surfaces, so client updates can require selector changes.

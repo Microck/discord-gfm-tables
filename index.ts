@@ -1,80 +1,78 @@
-/**
- * @name DiscordGfmTables
- * @author Microck
- * @description Renders GitHub-Flavored Markdown pipe tables in Discord messages.
- * @version 1.0.0
- */
+import definePlugin from "@utils/types";
 
-module.exports = class MarkdownTableRenderer {
-  constructor() {
-    this.observer = null;
-    this.processedAttribute = "data-markdown-table-renderer";
-    this.originalAttribute = "data-markdown-table-renderer-original";
-    this.styleId = "markdown-table-renderer-styles";
-  }
+const processedAttribute = "data-discord-gfm-tables";
+const originalAttribute = "data-discord-gfm-tables-original";
+const styleId = "discord-gfm-tables-styles";
+
+let observer: MutationObserver | null = null;
+
+export default definePlugin({
+  name: "DiscordGfmTables",
+  description: "Renders GitHub-Flavored Markdown pipe tables in Discord messages.",
+  authors: [{ name: "Microck", id: 0n }],
+  requiresRestart: false,
 
   start() {
-    this.injectStyles();
-    this.processExistingMessages();
+    injectStyles();
+    processExistingMessages();
 
-    this.observer = new MutationObserver((mutations) => {
+    observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLElement) this.processNode(node);
+          if (node instanceof HTMLElement) processNode(node);
         }
       }
     });
 
-    this.observer.observe(document.body, {childList: true, subtree: true});
-  }
+    observer.observe(document.body, { childList: true, subtree: true });
+  },
 
   stop() {
-    if (this.observer) {
-      this.observer.disconnect();
-      this.observer = null;
+    observer?.disconnect();
+    observer = null;
+
+    for (const element of document.querySelectorAll<HTMLElement>(`[${originalAttribute}]`)) {
+      element.textContent = element.getAttribute(originalAttribute) || "";
+      element.removeAttribute(originalAttribute);
+      element.removeAttribute(processedAttribute);
     }
 
-    for (const element of document.querySelectorAll(`[${this.originalAttribute}]`)) {
-      element.textContent = element.getAttribute(this.originalAttribute) || "";
-      element.removeAttribute(this.originalAttribute);
-      element.removeAttribute(this.processedAttribute);
-    }
+    document.getElementById(styleId)?.remove();
+  },
+});
 
-    document.getElementById(this.styleId)?.remove();
+function processExistingMessages() {
+  processNode(document.body);
+}
+
+function processNode(root: Element) {
+  const candidates = root.matches("[id^='message-content-']")
+    ? [root]
+    : Array.from(root.querySelectorAll("[id^='message-content-']"));
+
+  for (const candidate of candidates) {
+    if (candidate instanceof HTMLElement) processMessageContent(candidate);
   }
+}
 
-  processExistingMessages() {
-    this.processNode(document.body);
-  }
+function processMessageContent(element: HTMLElement) {
+  if (element.hasAttribute(processedAttribute)) return;
 
-  processNode(root) {
-    const candidates = root.matches?.("[id^='message-content-']")
-      ? [root]
-      : Array.from(root.querySelectorAll?.("[id^='message-content-']") || []);
+  const source = element.innerText || element.textContent || "";
+  const blocks = parseMarkdownTableBlocks(source);
+  if (!blocks.some((block) => block.type === "table")) return;
 
-    for (const candidate of candidates) {
-      this.processMessageContent(candidate);
-    }
-  }
+  element.setAttribute(originalAttribute, source);
+  element.setAttribute(processedAttribute, "true");
+  element.replaceChildren(renderBlocks(blocks));
+}
 
-  processMessageContent(element) {
-    if (element.hasAttribute(this.processedAttribute)) return;
+function injectStyles() {
+  if (document.getElementById(styleId)) return;
 
-    const source = element.innerText || element.textContent || "";
-    const blocks = parseMarkdownTableBlocks(source);
-    if (!blocks.some((block) => block.type === "table")) return;
-
-    element.setAttribute(this.originalAttribute, source);
-    element.setAttribute(this.processedAttribute, "true");
-    element.replaceChildren(renderBlocks(blocks));
-  }
-
-  injectStyles() {
-    if (document.getElementById(this.styleId)) return;
-
-    const style = document.createElement("style");
-    style.id = this.styleId;
-    style.textContent = `
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = `
 .mdtr-table-wrap {
   max-width: 100%;
   overflow-x: auto;
@@ -116,14 +114,32 @@ module.exports = class MarkdownTableRenderer {
   padding: 0.1em 0.25em;
 }
 `;
-    document.head.appendChild(style);
-  }
+  document.head.appendChild(style);
+}
+
+type TextBlock = {
+  type: "text";
+  text: string;
 };
 
-function parseMarkdownTableBlocks(markdown) {
+type TableBlock = {
+  type: "table";
+  table: MarkdownTable;
+};
+
+type MarkdownBlock = TextBlock | TableBlock;
+
+type MarkdownTable = {
+  header: string[];
+  alignments: Array<"left" | "center" | "right">;
+  rows: string[][];
+  endIndex: number;
+};
+
+export function parseMarkdownTableBlocks(markdown: string): MarkdownBlock[] {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
-  const blocks = [];
-  let pendingText = [];
+  const blocks: MarkdownBlock[] = [];
+  let pendingText: string[] = [];
   let index = 0;
 
   while (index < lines.length) {
@@ -136,22 +152,22 @@ function parseMarkdownTableBlocks(markdown) {
     }
 
     if (pendingText.length > 0) {
-      blocks.push({type: "text", text: trimOuterBlankLines(pendingText).join("\n")});
+      blocks.push({ type: "text", text: trimOuterBlankLines(pendingText).join("\n") });
       pendingText = [];
     }
 
-    blocks.push({type: "table", table});
+    blocks.push({ type: "table", table });
     index = table.endIndex;
   }
 
   if (pendingText.length > 0) {
-    blocks.push({type: "text", text: trimOuterBlankLines(pendingText).join("\n")});
+    blocks.push({ type: "text", text: trimOuterBlankLines(pendingText).join("\n") });
   }
 
   return blocks.filter((block) => block.type === "table" || block.text.length > 0);
 }
 
-function parseTableAt(lines, startIndex) {
+function parseTableAt(lines: string[], startIndex: number): MarkdownTable | null {
   if (startIndex + 1 >= lines.length) return null;
   if (isIndentedCodeLine(lines[startIndex]) || isIndentedCodeLine(lines[startIndex + 1])) return null;
 
@@ -162,7 +178,7 @@ function parseTableAt(lines, startIndex) {
   const alignments = delimiter.map(parseDelimiterCell);
   if (alignments.some((alignment) => alignment === null)) return null;
 
-  const rows = [];
+  const rows: string[][] = [];
   let index = startIndex + 2;
 
   while (index < lines.length) {
@@ -177,19 +193,19 @@ function parseTableAt(lines, startIndex) {
 
   return {
     header: normalizeBodyRow(header, header.length),
-    alignments,
+    alignments: alignments as MarkdownTable["alignments"],
     rows,
-    endIndex: index
+    endIndex: index,
   };
 }
 
-function splitTableRow(line) {
+export function splitTableRow(line: string): string[] | null {
   if (!line || !line.includes("|")) return null;
 
   const trimmed = line.trim();
   if (trimmed.length === 0) return null;
 
-  const cells = [];
+  const cells: string[] = [];
   let cell = "";
   let escaped = false;
   let sawCellBoundary = trimmed.startsWith("|") || (trimmed.endsWith("|") && !endsWithEscapedPipe(trimmed));
@@ -227,7 +243,7 @@ function splitTableRow(line) {
   return sawCellBoundary && cells.length > 0 ? cells : null;
 }
 
-function endsWithEscapedPipe(text) {
+function endsWithEscapedPipe(text: string) {
   let slashCount = 0;
 
   for (let index = text.length - 2; index >= 0 && text[index] === "\\"; index -= 1) {
@@ -237,7 +253,7 @@ function endsWithEscapedPipe(text) {
   return slashCount % 2 === 1;
 }
 
-function parseDelimiterCell(cell) {
+function parseDelimiterCell(cell: string): "left" | "center" | "right" | null {
   const trimmed = cell.trim();
   if (!/^:?-{1,}:?$/.test(trimmed)) return null;
   if (trimmed.startsWith(":") && trimmed.endsWith(":")) return "center";
@@ -245,21 +261,21 @@ function parseDelimiterCell(cell) {
   return "left";
 }
 
-function normalizeBodyRow(row, cellCount) {
-  return Array.from({length: cellCount}, (_, index) => row[index] || "");
+function normalizeBodyRow(row: string[], cellCount: number) {
+  return Array.from({ length: cellCount }, (_, index) => row[index] || "");
 }
 
-function isIndentedCodeLine(line) {
+function isIndentedCodeLine(line: string) {
   return /^( {4}|\t)/.test(line);
 }
 
-function isTableBreak(line) {
+function isTableBreak(line: string) {
   const trimmed = line.trim();
   if (trimmed.length === 0) return true;
   return /^(#{1,6}\s|>|[-+*]\s|\d+[.)]\s|`{3,}|~{3,})/.test(trimmed);
 }
 
-function trimOuterBlankLines(lines) {
+function trimOuterBlankLines(lines: string[]) {
   const result = [...lines];
 
   while (result.length > 0 && result[0].trim() === "") result.shift();
@@ -268,7 +284,7 @@ function trimOuterBlankLines(lines) {
   return result;
 }
 
-function renderBlocks(blocks) {
+function renderBlocks(blocks: MarkdownBlock[]) {
   const fragment = document.createDocumentFragment();
 
   for (const block of blocks) {
@@ -283,7 +299,7 @@ function renderBlocks(blocks) {
   return fragment;
 }
 
-function appendTextBlock(parent, text) {
+function appendTextBlock(parent: DocumentFragment, text: string) {
   const lines = text.split("\n");
   const paragraph = document.createElement("div");
 
@@ -295,7 +311,7 @@ function appendTextBlock(parent, text) {
   parent.appendChild(paragraph);
 }
 
-function renderTable(tableData) {
+function renderTable(tableData: MarkdownTable) {
   const wrapper = document.createElement("div");
   wrapper.className = "mdtr-table-wrap";
 
@@ -338,12 +354,12 @@ function renderTable(tableData) {
   return wrapper;
 }
 
-function renderInlineMarkdown(source) {
+function renderInlineMarkdown(source: string) {
   const fragment = document.createDocumentFragment();
   const text = source.replace(/\\\|/g, "|");
   const pattern = /(`([^`]+)`)|(\*\*([^*]+)\*\*)|(~~([^~]+)~~)|(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
   let cursor = 0;
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > cursor) fragment.appendChild(document.createTextNode(text.slice(cursor, match.index)));
@@ -375,9 +391,4 @@ function renderInlineMarkdown(source) {
 
   if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)));
   return fragment;
-}
-
-if (typeof module !== "undefined" && module.exports) {
-  module.exports.parseMarkdownTableBlocks = parseMarkdownTableBlocks;
-  module.exports.splitTableRow = splitTableRow;
 }

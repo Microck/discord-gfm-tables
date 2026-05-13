@@ -20,7 +20,7 @@ This plugin targets GitHub-Flavored Markdown pipe tables because that is the tab
 - A table can have no body rows.
 - Escaped pipes such as `\|` are literal cell content.
 
-## Discord/BetterDiscord Constraints
+## Discord/Vencord Constraints
 
 Discord does not expose a stable public Markdown renderer extension point. The plugin therefore uses a DOM post-processing approach:
 
